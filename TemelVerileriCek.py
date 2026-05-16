@@ -1,36 +1,34 @@
 """
-Hisse Senedi Temel Veri Çekici — Kapsamlı Sürüm
-=================================================
+Hisse Senedi Temel Veri Çekici — GitHub Actions Uyumlu (Tam Sürüm)
+==================================================================
 yfinance üzerinden ulaşılabilen tüm temel finansal verileri çeker ve
 sonuçları kategorilere ayrılmış, biçimlendirilmiş Excel dosyasına kaydeder.
 Her sütun başlığında açıklayıcı not (hover ile görünür) bulunur.
+
+Hisse listesi aynı dizindeki 'hisseisimleri.txt' dosyasından alınır.
+Çıktı dosyası adı otomatik olarak gün_ay_yıl içerir (ör: hisse_temel_veriler_21_03_2025.xlsx)
 
 Kurulum:
     pip install yfinance pandas openpyxl requests
 
 Kullanım:
-    python hisse_temel_veriler.py
+    python temel_verileri_cek.py
 """
 
 import sys
 import time
-import requests
 import pandas as pd
 import yfinance as yf
 from openpyxl import load_workbook
 from openpyxl.comments import Comment
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 
 # ─── AYARLAR ──────────────────────────────────────────────────────────────────
-HISSE_LISTESI_URL   = (
-    "https://github.com/fkcengizhan-crypto/HisseTemelVeriler/"
-    "raw/refs/heads/main/hisseisimleri.txt"
-)
-CIKTI_DOSYASI       = "hisse_temel_veriler.xlsx"
-ISTEK_ARASI_BEKLEME = 0.6   # saniye — API'yi yormamak için
+HISSE_LISTESI_DOSYASI = "hisseisimleri.txt"   # aynı dizinde olmalı
+ISTEK_ARASI_BEKLEME = 0.6                     # saniye — API'yi yormamak için
 # ──────────────────────────────────────────────────────────────────────────────
 
 
@@ -467,16 +465,19 @@ KATEGORILER = [
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def hisse_listesini_getir(url: str) -> list:
-    print("📥  Hisse listesi indiriliyor…")
+def hisse_listesini_getir(dosya_adi: str) -> list:
+    """Lokal bir metin dosyasından hisse kodlarını okur (her satırda bir kod)."""
+    print(f"📁 Hisse listesi '{dosya_adi}' dosyasından okunuyor…")
     try:
-        yanit = requests.get(url, timeout=15)
-        yanit.raise_for_status()
-        kodlar = [s.strip() for s in yanit.text.splitlines() if s.strip()]
-        print(f"✅  {len(kodlar)} hisse kodu bulundu.\n")
+        with open(dosya_adi, "r", encoding="utf-8") as f:
+            kodlar = [satir.strip() for satir in f if satir.strip()]
+        print(f"✅ {len(kodlar)} hisse kodu bulundu.\n")
         return kodlar
+    except FileNotFoundError:
+        print(f"❌ Dosya bulunamadı: {dosya_adi}")
+        sys.exit(1)
     except Exception as e:
-        print(f"❌  Liste alınamadı: {e}")
+        print(f"❌ Dosya okunamadı: {e}")
         sys.exit(1)
 
 
@@ -581,11 +582,10 @@ def _alan_basligi(hucre, metin, renk, not_metni: str):
     hucre.fill      = PatternFill("solid", start_color=renk)
     hucre.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
     hucre.border    = _kenar("7F8C8D")
-    # Excel notu (hover ile görünür)
     if not_metni:
         yorum = Comment(not_metni, NOT_YAZAR)
-        yorum.width  = 360   # piksel — genişlik
-        yorum.height = 160   # piksel — yükseklik
+        yorum.width  = 360
+        yorum.height = 160
         hucre.comment = yorum
 
 
@@ -610,16 +610,14 @@ def excel_kaydet(df: pd.DataFrame, dosya: str):
     notlar     = {s[0]: s[4] for s in SUTUNLAR}
 
     ws.row_dimensions[1].height = 16
-    ws.row_dimensions[2].height = 0    # pandas otomatik başlığı gizle
+    ws.row_dimensions[2].height = 0
     ws.row_dimensions[3].height = 36
 
-    # Kategori → renk haritası
     baslik_renk = {}
     for _, kat_basliklar, renk in KATEGORILER:
         for b in kat_basliklar:
             baslik_renk[b] = renk
 
-    # Sütun genişlikleri & alan başlıkları (3. satır)
     for sutun_no, baslik in enumerate(basliklar, 1):
         harf = get_column_letter(sutun_no)
         ws.column_dimensions[harf].width = max(12, min(len(baslik) + 3, 24))
@@ -627,7 +625,6 @@ def excel_kaydet(df: pd.DataFrame, dosya: str):
         renk  = baslik_renk.get(baslik, "2C3E50")
         _alan_basligi(hucre, baslik, renk, notlar.get(baslik, ""))
 
-    # Kategori başlıkları — 1. satır, birleştirilmiş hücreler
     sutun_idx = {b: i + 1 for i, b in enumerate(basliklar)}
     for kat_ad, kat_basliklar, renk in KATEGORILER:
         mevcut = [b for b in kat_basliklar if b in sutun_idx]
@@ -637,13 +634,11 @@ def excel_kaydet(df: pd.DataFrame, dosya: str):
         bit = sutun_idx[mevcut[-1]]
         _kategori_hucre(ws, 1, bas, bit, kat_ad, renk)
 
-    # 2. satırı temizle / gri yap
     for sutun_no in range(1, len(basliklar) + 1):
         h = ws.cell(2, sutun_no)
         h.value = None
         h.fill  = PatternFill("solid", start_color="EEEEEE")
 
-    # Veri satırları — 4. satırdan itibaren
     for satir_no in range(4, ws.max_row + 1):
         cift = satir_no % 2 == 0
         hata = ws.cell(satir_no, 2).value == "HATA"
@@ -662,7 +657,6 @@ def excel_kaydet(df: pd.DataFrame, dosya: str):
     ws.freeze_panes = "B4"
     ws.sheet_properties.tabColor = "1A5276"
 
-    # Bilgi sekmesi
     ws_b = wb.create_sheet("Bilgi")
     bilgiler = [
         ("Oluşturulma Tarihi",   datetime.now().strftime("%d.%m.%Y %H:%M")),
@@ -686,17 +680,28 @@ def excel_kaydet(df: pd.DataFrame, dosya: str):
 
 def main():
     print("=" * 62)
-    print("  📊  Hisse Senedi Temel Veri Çekici — Kapsamlı Sürüm")
+    print("  📊  Hisse Senedi Temel Veri Çekici — GitHub Actions Sürümü")
     print("=" * 62)
 
-    kodlar = hisse_listesini_getir(HISSE_LISTESI_URL)
+    # 1. Hisse kodlarını dosyadan oku
+    kodlar = hisse_listesini_getir(HISSE_LISTESI_DOSYASI)
 
-    # .IS uzantısını yfinance için ekle (dosyada yoksa)
+    # 2. yfinance için .IS uzantısını ekle (dosyada yoksa)
     kodlar_is = [k if k.endswith(".IS") else f"{k}.IS" for k in kodlar]
 
+    # 3. Verileri topla
     df = verileri_topla(kodlar_is)
-    excel_kaydet(df, CIKTI_DOSYASI)
 
+    # 4. Dinamik Excel dosya adı (Türkiye saati ile gün_ay_yıl)
+    turkey_tz = timezone(timedelta(hours=3))
+    bugun = datetime.now(turkey_tz)
+    tarih_str = bugun.strftime("%d_%m_%Y")   # örnek: 21_03_2025
+    cikti_dosyasi = f"hisse_temel_veriler_{tarih_str}.xlsx"
+
+    # 5. Excel'e kaydet
+    excel_kaydet(df, cikti_dosyasi)
+
+    # 6. Özet bilgi
     basarili  = len(df[df["Şirket İsmi"] != "HATA"])
     basarisiz = len(df) - basarili
     basliklar = [s[0] for s in SUTUNLAR]
@@ -706,7 +711,7 @@ def main():
     print(f"  Başarılı       : {basarili}")
     print(f"  Veri alınamadı : {basarisiz}")
     print(f"  Toplam sütun   : {len(basliklar)}")
-    print(f"  Çıktı dosyası  : {CIKTI_DOSYASI}")
+    print(f"  Çıktı dosyası  : {cikti_dosyasi}")
     print("─────────────────────────────────────────────────────────\n")
 
 
