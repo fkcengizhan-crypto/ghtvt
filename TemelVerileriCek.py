@@ -696,11 +696,13 @@ def main():
     turkey_tz = timezone(timedelta(hours=3))
     bugun = datetime.now(turkey_tz)
     tarih_str = bugun.strftime("%d_%m_%Y")   # örnek: 21_03_2025
-    cikti_dosyasi = f"hisse_temel_veriler_{tarih_str}.xlsx"
+    
+    gunluk_dosya = f"hisse_temel_veriler_{tarih_str}.xlsx"
+    sabit_dosya = f"hisse_temel_veriler.xlsx"
 
-    # 5. Excel'e kaydet
-    excel_kaydet(df, cikti_dosyasi)
-
+    excel_kaydet(df, gunluk_dosya)
+    excel_kaydet(df, sabit_dosya)
+    
     # 6. Özet bilgi
     basarili  = len(df[df["Şirket İsmi"] != "HATA"])
     basarisiz = len(df) - basarili
@@ -711,7 +713,8 @@ def main():
     print(f"  Başarılı       : {basarili}")
     print(f"  Veri alınamadı : {basarisiz}")
     print(f"  Toplam sütun   : {len(basliklar)}")
-    print(f"  Çıktı dosyası  : {cikti_dosyasi}")
+    print(f"  Çıktı dosyası  : {gunluk_dosya}")
+    print(f"  Çıktı dosyası  : {sabit_dosya}")
     print("─────────────────────────────────────────────────────────\n")
 
 

@@ -2,15 +2,14 @@ name: Günlük Hisse Temel Veri Çekici
 
 on:
   schedule:
-    # Türkiye saati ile her gün 19:00 = UTC 16:00
     - cron: '0 16 * * *'
-  workflow_dispatch:   # manuel çalıştırma için
+  workflow_dispatch:
 
 jobs:
   veri-cek:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # repoya push yapabilmek için gerekli
+      contents: write
 
     steps:
       - name: Depoyu klonla
@@ -35,18 +34,19 @@ jobs:
           echo "Hisse listesi dosyası mevcut."
 
       - name: Python betiğini çalıştır
-        run: python TemelVerileriCek.py   # Betik dosyanızın adı bu (düzeltin gerekirse)
+        run: python TemelVerileriCek.py
 
-      - name: Archive klasörünü oluştur ve Excel dosyasını taşı
+      - name: Archive klasörünü oluştur ve sadece tarihli dosyayı taşı
         run: |
           mkdir -p Archive
-          # Betiğin ürettiği dosya adı örn: hisse_temel_veriler_21_03_2025.xlsx
-          mv hisse_temel_veriler_*.xlsx Archive/
+          # Tarihli dosyayı taşı (örnek: hisse_temel_veriler_21_03_2025.xlsx)
+          # Sabit dosya (hisse_temel_veriler.xlsx) ana dizinde kalır
+          mv hisse_temel_veriler_?_*.xlsx Archive/ 2>/dev/null || true
 
       - name: Değişiklikleri commit et ve pushla
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Archive/
+          git add Archive/ hisse_temel_veriler.xlsx
           git commit -m "Günlük hisse verileri eklendi: $(date +'%d.%m.%Y')" || echo "Değişiklik yok"
           git push
