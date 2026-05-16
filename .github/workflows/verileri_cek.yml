@@ -9,6 +9,8 @@ on:
 jobs:
   veri-cek:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # repoya push yapabilmek için gerekli
 
     steps:
       - name: Depoyu klonla
@@ -22,7 +24,7 @@ jobs:
       - name: Gerekli kütüphaneleri yükle
         run: |
           pip install --upgrade pip
-          pip install yfinance pandas openpyxl requests
+          pip install yfinance pandas openpyxl
 
       - name: Hisse listesi dosyasını kontrol et
         run: |
@@ -33,10 +35,18 @@ jobs:
           echo "Hisse listesi dosyası mevcut."
 
       - name: Python betiğini çalıştır
-        run: python TemelVerileriCek.py
+        run: python TemelVerileriCek.py   # Betik dosyanızın adı bu (düzeltin gerekirse)
 
-      - name: Üretilen Excel dosyasını artefact olarak yayınla
-        uses: actions/upload-artifact@v4
-        with:
-          name: hisse_temel_veriler_$(date +'%d_%m_%Y')
-          path: temel_veriler_*.xlsx
+      - name: Archive klasörünü oluştur ve Excel dosyasını taşı
+        run: |
+          mkdir -p Archive
+          # Betiğin ürettiği dosya adı örn: hisse_temel_veriler_21_03_2025.xlsx
+          mv hisse_temel_veriler_*.xlsx Archive/
+
+      - name: Değişiklikleri commit et ve pushla
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Archive/
+          git commit -m "Günlük hisse verileri eklendi: $(date +'%d.%m.%Y')" || echo "Değişiklik yok"
+          git push
