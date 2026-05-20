@@ -41,7 +41,7 @@ jobs:
           mkdir -p Archive
           # Tarihli dosyayı taşı (örnek: hisse_temel_veriler_21_03_2025.xlsx)
           # Sabit dosya (hisse_temel_veriler.xlsx) ana dizinde kalır
-          mv hisse_temel_veriler_?_*.xlsx Archive/ 2>/dev/null || true
+          mv hisse_temel_veriler_*.xlsx Archive/ 2>/dev/null || true
 
       - name: Değişiklikleri commit et ve pushla
         run: |
