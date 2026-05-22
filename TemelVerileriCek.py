@@ -17,6 +17,7 @@ Kullanım:
 
 import sys
 import time
+import json
 import pandas as pd
 import yfinance as yf
 from openpyxl import load_workbook
@@ -675,7 +676,20 @@ def excel_kaydet(df: pd.DataFrame, dosya: str):
     wb.save(dosya)
     print(f"✅  Kaydedildi → {dosya}")
 
-
+def json_kaydet(df: pd.DataFrame, dosya: str):
+    """
+    DataFrame'i JSON formatında kaydeder.
+    Satır bazlı liste (orient='records') olarak dönüştürür.
+    """
+    # NaN değerleri None'a çevir (JSON uyumlu)
+    df_json = df.where(pd.notnull(df), None)
+    veriler = df_json.to_dict(orient="records")
+    
+    with open(dosya, "w", encoding="utf-8") as f:
+        json.dump(veriler, f, ensure_ascii=False, indent=2)
+    
+    print(f"✅ JSON kaydedildi → {dosya}")
+    
 # ─── ANA AKIŞ ─────────────────────────────────────────────────────────────────
 
 def main():
@@ -700,8 +714,13 @@ def main():
     gunluk_dosya = f"hisse_temel_veriler_{tarih_str}.xlsx"
     sabit_dosya = f"hisse_temel_veriler.xlsx"
 
+    # ... (Excel kayıtları aynen kalacak)
     excel_kaydet(df, gunluk_dosya)
     excel_kaydet(df, sabit_dosya)
+
+    # JSON kayıtları (yeni eklenen)
+    json_kaydet(df, f"hisse_temel_veriler_{tarih_str}.json")
+    json_kaydet(df, "hisse_temel_veriler.json")
     
     # 6. Özet bilgi
     basarili  = len(df[df["Şirket İsmi"] != "HATA"])
