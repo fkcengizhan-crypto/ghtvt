@@ -47,6 +47,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Archive/ hisse_temel_veriler.xlsx
+          git add Archive/ hisse_temel_veriler.xlsx hisse_temel_veriler.json
           git commit -m "Günlük hisse verileri eklendi: $(date +'%d.%m.%Y')" || echo "Değişiklik yok"
           git push
